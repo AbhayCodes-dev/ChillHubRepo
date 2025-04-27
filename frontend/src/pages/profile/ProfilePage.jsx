@@ -34,30 +34,22 @@ const ProfilePage = () => {
 
   const { follow, isPending } = useFollow();
   
-  // Mock authUser for development - replace this with your actual authentication logic
-  const mockAuthUser = {
-    _id: "user123",
-    following: []
-  };
-  
-  // Use the mock data as fallback if the query fails or is still loading
-  const { data: authUser = mockAuthUser } = useQuery({ 
+  // Get current authenticated user
+  const { data: authUser = { _id: "", following: [] } } = useQuery({ 
     queryKey: ["authUser"],
-    // Add a queryFn if you have an API endpoint for the auth user
-    // This will prevent the "No queryFn was passed" error
     queryFn: async () => {
       try {
-        // Replace with your actual auth user endpoint
-        const res = await fetch('/api/auth/me');
-        if (!res.ok) return mockAuthUser;
+        const res = await fetch('/api/users/me');
+        if (!res.ok) throw new Error("Failed to fetch authenticated user");
         return await res.json();
       } catch (error) {
         console.error("Error fetching auth user:", error);
-        return mockAuthUser;
+        return { _id: "", following: [] };
       }
     }
   });
 
+  // Get profile user data
   const {
     data: user,
     isLoading,
@@ -68,13 +60,14 @@ const ProfilePage = () => {
     queryFn: async () => {
       try {
         const res = await fetch(`/api/users/profile/${username}`);
-        const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.error || "Something went wrong");
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Failed to fetch user profile");
         }
-        return data;
+        return await res.json();
       } catch (error) {
-        throw new Error(error);
+        console.error("Error fetching user profile:", error);
+        throw error;
       }
     },
   });
@@ -97,130 +90,108 @@ const ProfilePage = () => {
     }
   };
 
-  // Updated fetch followers function with better error handling
+  // Fetch followers data when followers modal is opened
   const handleShowFollowers = async () => {
-    if (!user) return;
+    if (!user?._id) return;
     
     setShowFollowersModal(true);
     setIsLoadingFollowers(true);
     
     try {
-      // First check if followers are already populated in user object
+      // If the followers are already populated with full objects, use them
       if (user.followers && Array.isArray(user.followers) && 
-          user.followers.length > 0 && typeof user.followers[0] === 'object') {
-        // Use already populated follower objects
+          user.followers.length > 0 && typeof user.followers[0] === 'object' && 
+          user.followers[0]._id) {
         setFollowersData(user.followers);
         setIsLoadingFollowers(false);
         return;
       }
       
-      // If we only have IDs, fetch the full user data
-      if (user.followers && Array.isArray(user.followers)) {
-        try {
-          // Try to get followers data
-          // Using a more reliable approach - fetch user details for each follower ID
-          const followerPromises = user.followers.map(async (followerId) => {
-            try {
-              const res = await fetch(`/api/users/${followerId}`);
-              if (!res.ok) throw new Error("Failed to fetch user");
-              return await res.json();
-            } catch (e) {
-              // Return a minimal user object if we can't fetch details
-              return { 
-                _id: followerId, 
-                username: `user_${followerId.substring(0, 5)}`,
-                fullName: "Unknown User",
-                profileImg: "/avatar-placeholder.png"
-              };
+      // Otherwise fetch followers data by IDs
+      if (user.followers && Array.isArray(user.followers) && user.followers.length > 0) {
+        // Fetch each follower's data
+        const followerPromises = user.followers.map(async (followerId) => {
+          try {
+            // Make sure we're using the correct API endpoint
+            const res = await fetch(`/api/users/profile/${followerId}`);
+            if (!res.ok) {
+              const errorData = await res.json();
+              throw new Error(errorData.error || "Failed to fetch follower");
             }
-          });
-          
-          const resolvedFollowers = await Promise.all(followerPromises);
-          setFollowersData(resolvedFollowers);
-        } catch (error) {
-          console.error("Error fetching followers:", error);
-          
-          // Create minimal user objects from IDs as a fallback
-          const minimalFollowers = user.followers.map(id => ({
-            _id: id,
-            username: `user_${id.substring(0, 5)}`,
-            fullName: "Unknown User", 
-            profileImg: "/avatar-placeholder.png"
-          }));
-          
-          setFollowersData(minimalFollowers);
-        }
+            return await res.json();
+          } catch (error) {
+            console.error(`Error fetching follower ${followerId}:`, error);
+            // Return minimal data if fetch fails
+            return { 
+              _id: followerId, 
+              username: `user_${followerId.substring(0, 5)}`,
+              fullName: "User not found",
+              profileImg: "/avatar-placeholder.png"
+            };
+          }
+        });
+        
+        const fetchedFollowers = await Promise.all(followerPromises);
+        setFollowersData(fetchedFollowers);
       } else {
-        // No followers data available
         setFollowersData([]);
       }
     } catch (error) {
-      console.error("Error in followers modal:", error);
+      console.error("Error loading followers:", error);
       setFollowersData([]);
     } finally {
       setIsLoadingFollowers(false);
     }
   };
 
-  // Updated fetch following function with better error handling
+  // Fetch following data when following modal is opened
   const handleShowFollowing = async () => {
-    if (!user) return;
+    if (!user?._id) return;
     
     setShowFollowingModal(true);
     setIsLoadingFollowing(true);
     
     try {
-      // First check if following users are already populated in user object
+      // If the following are already populated with full objects, use them
       if (user.following && Array.isArray(user.following) && 
-          user.following.length > 0 && typeof user.following[0] === 'object') {
-        // Use already populated following objects
+          user.following.length > 0 && typeof user.following[0] === 'object' && 
+          user.following[0]._id) {
         setFollowingData(user.following);
         setIsLoadingFollowing(false);
         return;
       }
       
-      // If we only have IDs, fetch the full user data
-      if (user.following && Array.isArray(user.following)) {
-        try {
-          // Try to get following data
-          // Using a more reliable approach - fetch user details for each following ID
-          const followingPromises = user.following.map(async (followingId) => {
-            try {
-              const res = await fetch(`/api/users/${followingId}`);
-              if (!res.ok) throw new Error("Failed to fetch user");
-              return await res.json();
-            } catch (e) {
-              // Return a minimal user object if we can't fetch details
-              return { 
-                _id: followingId, 
-                username: `user_${followingId.substring(0, 5)}`,
-                fullName: "Unknown User",
-                profileImg: "/avatar-placeholder.png"
-              };
+      // Otherwise fetch following data by IDs
+      if (user.following && Array.isArray(user.following) && user.following.length > 0) {
+        // Fetch each following user's data
+        const followingPromises = user.following.map(async (followingId) => {
+          try {
+            // Make sure we're using the correct API endpoint
+            const res = await fetch(`/api/users/profile/${followingId}`);
+            if (!res.ok) {
+              const errorData = await res.json();
+              throw new Error(errorData.error || "Failed to fetch following user");
             }
-          });
-          
-          const resolvedFollowing = await Promise.all(followingPromises);
-          setFollowingData(resolvedFollowing);
-        } catch (error) {
-          console.error("Error fetching following:", error);
-          
-          // Create minimal user objects from IDs as a fallback
-          const minimalFollowing = user.following.map(id => ({
-            _id: id,
-            username: `user_${id.substring(0, 5)}`,
-            fullName: "Unknown User", 
-            profileImg: "/avatar-placeholder.png"
-          }));
-          
-          setFollowingData(minimalFollowing);
-        }
+            return await res.json();
+          } catch (error) {
+            console.error(`Error fetching following user ${followingId}:`, error);
+            // Return minimal data if fetch fails
+            return { 
+              _id: followingId, 
+              username: `user_${followingId.substring(0, 5)}`,
+              fullName: "User not found",
+              profileImg: "/avatar-placeholder.png"
+            };
+          }
+        });
+        
+        const fetchedFollowing = await Promise.all(followingPromises);
+        setFollowingData(fetchedFollowing);
       } else {
-        // No following data available
         setFollowingData([]);
       }
     } catch (error) {
-      console.error("Error in following modal:", error);
+      console.error("Error loading following:", error);
       setFollowingData([]);
     } finally {
       setIsLoadingFollowing(false);
@@ -285,10 +256,10 @@ const ProfilePage = () => {
                       
                       <div className="flex flex-col">
                         <span className="font-semibold text-white">
-                          {user.fullName}
+                          {user.fullName || 'Unknown User'}
                         </span>
                         <span className="text-sm text-gray-400">
-                          @{user.username}
+                          @{user.username || `user_${user._id?.substring(0, 5)}`}
                         </span>
                         {user.bio && (
                           <p className="text-gray-400 text-xs mt-1 line-clamp-1">
@@ -298,7 +269,7 @@ const ProfilePage = () => {
                       </div>
                     </div>
                     
-                    {authUser?._id !== user._id && (
+                    {authUser?._id && authUser?._id !== user._id && (
                       <button
                         className={`px-4 py-1.5 rounded-full text-xs font-medium ${
                           authUser?.following?.includes(user._id)
@@ -551,7 +522,7 @@ const ProfilePage = () => {
                 </div>
 
                 <div className="flex gap-6">
-                  {/* Following Button/Counter - Updated to ensure it works */}
+                  {/* Following Button/Counter */}
                   <motion.div 
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -562,7 +533,7 @@ const ProfilePage = () => {
                     <span className="text-gray-400 group-hover/follow:text-yellow-400 transition-colors">Following</span>
                   </motion.div>
                   
-                  {/* Followers Button/Counter - Updated to ensure it works */}
+                  {/* Followers Button/Counter */}
                   <motion.div 
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}

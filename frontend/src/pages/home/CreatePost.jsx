@@ -1,3 +1,4 @@
+// components/CreatePost.jsx
 import { useRef, useState, useEffect } from "react";
 import { IoCloseSharp } from "react-icons/io5";
 import {
@@ -49,15 +50,15 @@ const CreatePost = ({ onClose }) => {
   const queryClient = useQueryClient();
 
   const createPostMutation = useMutation({
-    mutationFn: async ({ text, img, type, reviewData }) => {
+    mutationFn: async ({ text, img, postType, reviewData }) => {
       const res = await fetch("/api/posts/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text,
           img,
-          type,
-          ...(type === "review" && reviewData),
+          postType,
+          reviewData: postType === "review" ? reviewData : null,
         }),
       });
       const data = await res.json();
@@ -77,6 +78,9 @@ const CreatePost = ({ onClose }) => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
       if (onClose) onClose();
     },
+    onError: (error) => {
+      toast.error(error.message);
+    },
   });
 
   const handleSubmit = (e) => {
@@ -92,7 +96,7 @@ const CreatePost = ({ onClose }) => {
     createPostMutation.mutate({
       text,
       img,
-      type: activeTab,
+      postType: activeTab,
       reviewData: activeTab === "review" ? reviewData : null,
     });
   };

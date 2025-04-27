@@ -706,29 +706,6 @@ const Anime = () => {
           <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
           Curated picks based on your taste
         </p>
-
-        {/* Search bar */}
-        <div className="mt-6 relative">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search for movies..."
-              className="w-full bg-gray-800/50 border border-gray-700 rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500/50 transition-all"
-            />
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
-        </div>
       </div>
 
       {/* Sections */}

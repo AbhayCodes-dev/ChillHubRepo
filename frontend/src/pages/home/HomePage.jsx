@@ -1,3 +1,4 @@
+// components/HomePage.jsx
 import { useState, useEffect } from "react";
 import { 
   Film, 
@@ -18,7 +19,6 @@ const HomePage = () => {
   const [showHeader, setShowHeader] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
 
-  // Handle scroll to hide/show header
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -36,7 +36,6 @@ const HomePage = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
 
-  // Feed options with metadata for cleaner rendering
   const feedOptions = [
     { id: "latest", label: "For You", icon: <TrendingUp size={18} />, color: "text-blue-400", hoverColor: "hover:text-blue-300", borderColor: "border-blue-400" },
     { id: "following", label: "Following", icon: <Users size={18} />, color: "text-purple-400", hoverColor: "hover:text-purple-300", borderColor: "border-purple-400" },
@@ -44,9 +43,29 @@ const HomePage = () => {
     { id: "premium", label: "Premium", icon: <Star size={18} />, color: "text-amber-400", hoverColor: "hover:text-amber-300", borderColor: "border-amber-400" }
   ];
 
+  // Premium Content Message Component
+  const PremiumContentMessage = () => (
+    <div className="flex flex-col items-center justify-center py-16 px-6 rounded-xl bg-gradient-to-br from-gray-900 to-gray-950 border border-gray-800 shadow-xl my-10 text-center">
+      <div className="w-16 h-16 bg-amber-400/20 rounded-full flex items-center justify-center mb-6">
+        <Lock className="text-amber-400" size={32} />
+      </div>
+      <h2 className="text-2xl font-bold text-white mb-3">Premium Content Locked</h2>
+      <p className="text-gray-400 max-w-md mb-6">
+        Unlock exclusive content, reviews, and recommendations from our curated selection 
+        of premium features.
+      </p>
+      <button className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-medium py-3 px-8 rounded-full transition-all shadow-lg hover:shadow-amber-500/20">
+        Upgrade to Premium
+      </button>
+      <p className="text-xs text-gray-500 mt-6">
+        Cancel anytime. See terms and conditions for details.
+      </p>
+    </div>
+  );
+
   return (
     <div className="flex-[4_4_0] mr-auto min-h-screen bg-gray-950">
-      {/* Animated Header */}
+      {/* Header */}
       <div 
         className={`sticky transition-transform duration-300 ${
           showHeader ? "top-0 translate-y-0" : "-translate-y-full"
@@ -66,12 +85,7 @@ const HomePage = () => {
             </div>
           </div>
           
-          <div>
-            <button className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-full text-sm font-medium transition-all">
-              <Heart size={16} className="text-red-400" />
-              <span>Favorites</span>
-            </button>
-          </div>
+          {/* Removed the Favorites Button */}
         </div>
 
         {/* Feed Selector */}
@@ -95,49 +109,17 @@ const HomePage = () => {
 
       {/* Content Section */}
       <div className="relative px-4 pt-6">
-        {/* Background accent */}
         <div className="absolute inset-0 bg-gradient-to-b from-purple-900/5 via-blue-900/5 to-transparent pointer-events-none" />
-
-        {feedType === "reviews" ? (
-          <div className="flex flex-col items-center justify-center py-24 text-gray-400 bg-gray-900/30 backdrop-blur-sm rounded-2xl border border-gray-800">
-            <div className="bg-gray-800 p-4 rounded-full mb-6">
-              <PenLine size={32} className="text-green-400" />
-            </div>
-            <p className="text-xl font-medium text-white mb-2">Review Section Coming Soon</p>
-            <p className="text-sm max-w-md text-center text-gray-400">
-              Share your thoughts on shows and movies with the community. Rate, review, and discover content based on authentic opinions.
-            </p>
-            <button className="mt-8 bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-2 rounded-full text-white font-medium hover:shadow-lg hover:shadow-green-500/20 transition-all">
-              Get Notified
-            </button>
-          </div>
-        ) : feedType === "premium" ? (
-          <div className="flex flex-col items-center justify-center py-24 text-gray-400 bg-gray-900/30 backdrop-blur-sm rounded-2xl border border-gray-800">
-            <div className="relative">
-              <div className="absolute -inset-4 bg-amber-400/20 rounded-full blur-xl animate-pulse"></div>
-              <div className="bg-gradient-to-br from-amber-400 to-amber-600 p-4 rounded-full relative">
-                <Lock size={32} className="text-white" />
-              </div>
-            </div>
-            <p className="text-xl font-medium text-white mt-6 mb-2">Premium Experience</p>
-            <p className="text-sm max-w-md text-center text-gray-400">
-              Unlock exclusive content, ad-free browsing, and early access to new features with Chill-Hub Premium.
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-4">
-              <button className="bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-2 rounded-full text-white font-medium hover:shadow-lg hover:shadow-amber-500/20 transition-all">
-                Explore Premium
-              </button>
-              <button className="border border-gray-700 bg-gray-800/50 hover:bg-gray-800 px-6 py-2 rounded-full text-gray-300 font-medium transition-all">
-                Learn More
-              </button>
-            </div>
-          </div>
+        
+        {/* Show premium message or posts based on feedType */}
+        {feedType === "premium" ? (
+          <PremiumContentMessage />
         ) : (
           <Posts feedType={feedType} />
         )}
       </div>
 
-      {/* Floating Create Post Button - Using original CreatePost component */}
+      {/* Floating Create Post Button */}
       <div className="fixed bottom-6 right-6 z-20">
         <div className="relative group">
           <div className="absolute inset-0 bg-yellow-400 rounded-full blur-md opacity-0 group-hover:opacity-50 transition-opacity duration-300" />

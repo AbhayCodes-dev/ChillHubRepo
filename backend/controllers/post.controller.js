@@ -1,3 +1,4 @@
+// controllers/post.controller.js
 import Notification from "../models/notification.model.js";
 import Post from "../models/post.model.js";
 import User from "../models/user.model.js";
@@ -5,7 +6,7 @@ import { v2 as cloudinary } from "cloudinary";
 
 export const createPost = async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, postType, reviewData } = req.body;
     let { img } = req.body;
 
     const userId = req.user._id.toString();
@@ -13,27 +14,52 @@ export const createPost = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (!text && !img) {
-      return res.status(400).json({ error: "Post must have text or image" });
+    // Validation based on post type
+    if (postType === "post") {
+      if (!text && !img) {
+        return res.status(400).json({ error: "Post must have text or image" });
+      }
+    } else if (postType === "review") {
+      if (!text) {
+        return res.status(400).json({ error: "Review must have text" });
+      }
+      if (!reviewData?.movieName) {
+        return res.status(400).json({ error: "Movie name is required" });
+      }
+      if (!reviewData?.rating || reviewData.rating < 1 || reviewData.rating > 5) {
+        return res.status(400).json({ error: "Rating must be between 1-5" });
+      }
+    } else {
+      return res.status(400).json({ error: "Invalid post type" });
     }
 
+    // Upload image if exists
     if (img) {
       const uploadedResponse = await cloudinary.uploader.upload(img);
-
       img = uploadedResponse.secure_url;
     }
 
+    // Create new post
     const newPost = new Post({
       user: userId,
       text,
       img,
+      postType,
+      ...(postType === "review" && { reviewData }),
     });
 
     await newPost.save();
-    res.status(201).json(newPost);
+
+    // Populate user data before sending response
+    const populatedPost = await Post.findById(newPost._id).populate({
+      path: "user",
+      select: "-password",
+    });
+
+    res.status(201).json(populatedPost);
   } catch (error) {
-    res.status(500).json({ error: "Internal server error" });
     console.log("Error in createPost controller: ", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -73,18 +99,23 @@ export const commentOnPost = async (req, res) => {
     if (!text) {
       return res.status(400).json({ error: "Text field is required" });
     }
-    const post = await Post.findById(postId);
 
+    const post = await Post.findById(postId);
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
 
     const comment = { user: userId, text };
-
     post.comments.push(comment);
     await post.save();
 
-    res.status(200).json(post);
+    // Populate comment user data before sending response
+    const populatedPost = await Post.findById(post._id).populate({
+      path: "comments.user",
+      select: "-password",
+    });
+
+    res.status(200).json(populatedPost);
   } catch (error) {
     console.log("Error in commentOnPost controller: ", error);
     res.status(500).json({ error: "Internal server error" });
@@ -97,7 +128,6 @@ export const likeUnlikePost = async (req, res) => {
     const { id: postId } = req.params;
 
     const post = await Post.findById(postId);
-
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
@@ -119,12 +149,15 @@ export const likeUnlikePost = async (req, res) => {
       await User.updateOne({ _id: userId }, { $push: { likedPosts: postId } });
       await post.save();
 
-      const notification = new Notification({
-        from: userId,
-        to: post.user,
-        type: "like",
-      });
-      await notification.save();
+      // Create notification if not liking your own post
+      if (post.user.toString() !== userId.toString()) {
+        const notification = new Notification({
+          from: userId,
+          to: post.user,
+          type: "like",
+        });
+        await notification.save();
+      }
 
       const updatedLikes = post.likes;
       res.status(200).json(updatedLikes);
@@ -137,7 +170,16 @@ export const likeUnlikePost = async (req, res) => {
 
 export const getAllPosts = async (req, res) => {
   try {
-    const posts = await Post.find()
+    const { type } = req.query;
+    let filter = {};
+
+    if (type === "review") {
+      filter.postType = "review";
+    } else if (type === "post") {
+      filter.postType = "post";
+    }
+
+    const posts = await Post.find(filter)
       .sort({ createdAt: -1 })
       .populate({
         path: "user",
@@ -167,6 +209,7 @@ export const getLikedPosts = async (req, res) => {
     if (!user) return res.status(404).json({ error: "User not found" });
 
     const likedPosts = await Post.find({ _id: { $in: user.likedPosts } })
+      .sort({ createdAt: -1 })
       .populate({
         path: "user",
         select: "-password",
@@ -191,7 +234,10 @@ export const getFollowingPosts = async (req, res) => {
 
     const following = user.following;
 
-    const feedPosts = await Post.find({ user: { $in: following } })
+    const feedPosts = await Post.find({ 
+      user: { $in: following },
+      postType: "post" // Only get regular posts in following feed
+    })
       .sort({ createdAt: -1 })
       .populate({
         path: "user",
@@ -212,11 +258,19 @@ export const getFollowingPosts = async (req, res) => {
 export const getUserPosts = async (req, res) => {
   try {
     const { username } = req.params;
+    const { type } = req.query;
 
     const user = await User.findOne({ username });
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    const posts = await Post.find({ user: user._id })
+    let filter = { user: user._id };
+    if (type === "review") {
+      filter.postType = "review";
+    } else if (type === "post") {
+      filter.postType = "post";
+    }
+
+    const posts = await Post.find(filter)
       .sort({ createdAt: -1 })
       .populate({
         path: "user",
